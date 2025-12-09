@@ -1,165 +1,234 @@
+import React, { useState, useEffect, useRef } from 'react';
 
-<!doctype html>
-<html lang="es">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Memorizador</title>
-    <style>
-      body { font-family: system-ui, Arial; margin: 0; padding: 24px; }
-      .grid { display: grid; grid-template-columns: repeat(2, 120px); grid-template-rows: repeat(2, 120px); gap: 12px; justify-content: center; margin: 24px 0; }
-      button { width: 120px; height: 120px; border-radius: 16px; border: 4px solid #000; cursor: pointer; }
-      button:disabled { cursor: not-allowed; opacity: 0.8; }
-      .center { text-align: center; max-width: 640px; margin: 0 auto; }
-      .cta { padding: 10px 16px; border: 2px solid #000; border-radius: 10px; background: #fff; cursor: pointer; }
-    </style>
-  </head>
-  <body>
-    <div id="root"></div>
+const SimonGame = () => {
+  const [sequence, setSequence] = useState([]);
+  const [userSequence, setUserSequence] = useState([]);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isUserTurn, setIsUserTurn] = useState(false);
+  const [score, setScore] = useState(0);
+  const [gameOver, setGameOver] = useState(false);
+  const [activeColor, setActiveColor] = useState(null);
+  const [level, setLevel] = useState(1);
+  
+  const audioContextRef = useRef(null);
 
-    <!-- React y ReactDOM por CDN (UMD) -->
-    <script crossorigineact@18/umd/react.production.min.js</script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd.js</script>
-    <!-- Babel para poder escribir JSX directamente en el navegador -->
-    https://unpkg.com/babel-standalone@6/babel.min.js</script>
-
-    <!-- Tu app en JSX -->
-    <script type="text/babel">
-      const { useState, useEffect, useRef } = React;
-
-      function SimonGame() {
-        const [sequence, setSequence] = useState([]);
-        const [userSequence, setUserSequence] = useState([]);
-        const [isPlaying, setIsPlaying] = useState(false);
-        const [isUserTurn, setIsUserTurn] = useState(false);
-        const [score, setScore] = useState(0);
-        const [gameOver, setGameOver] = useState(false);
-        const [activeColor, setActiveColor] = useState(null);
-        const [level, setLevel] = useState(1);
-        const audioContextRef = useRef(null);
-
-        useEffect(() => {
-          audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
-          return () => { if (audioContextRef.current) audioContextRef.current.close(); };
-        }, []);
-
-        const colors = [
-          { id: 0, name: 'verde',   color: '#00ff00', darkColor: '#00aa00', freq: 329.63 },
-          { id: 1, name: 'rojo',    color: '#ff0000', darkColor: '#aa0000', freq: 261.63 },
-          { id: 2, name: 'amarillo',color: '#ffff00', darkColor: '#aaaa00', freq: 392.00 },
-          { id: 3, name: 'azul',    color: '#0099ff', darkColor: '#0066aa', freq: 440.00 }
-        ];
-
-        const playSound = (frequency, duration = 400) => {
-          const ctx = audioContextRef.current;
-          if (!ctx) return;
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.connect(gain); gain.connect(ctx.destination);
-          osc.frequency.value = frequency; osc.type = 'sine';
-          gain.gain.setValueAtTime(0.3, ctx.currentTime);
-          gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + duration / 1000);
-          osc.start(ctx.currentTime); osc.stop(ctx.currentTime + duration / 1000);
-        };
-
-        const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-
-        const flashColor = async (colorId) => {
-          setActiveColor(colorId);
-          playSound(colors[colorId].freq);
-          await sleep(400);
-          setActiveColor(null);
-          await sleep(100);
-        };
-
-        const playSequence = async (seq) => {
-          setIsUserTurn(false);
-          await sleep(500);
-          for (const colorId of seq) { await flashColor(colorId); }
-          setIsUserTurn(true);
-        };
-
-        const startGame = () => {
-          setSequence([]); setUserSequence([]); setScore(0); setLevel(1);
-          setGameOver(false); setIsPlaying(true);
-          addNextColor([]);
-        };
-
-        const addNextColor = async (currentSeq) => {
-          const newColor = Math.floor(Math.random() * 4);
-          const newSequence = [...currentSeq, newColor];
-          setSequence(newSequence);
-          await playSequence(newSequence);
-        };
-
-        const handleColorClick = async (colorId) => {
-          if (!isUserTurn || gameOver) return;
-          playSound(colors[colorId].freq, 200);
-          setActiveColor(colorId); setTimeout(() => setActiveColor(null), 200);
-
-          const newUserSequence = [...userSequence, colorId];
-          setUserSequence(newUserSequence);
-
-          const i = newUserSequence.length - 1;
-          if (newUserSequence[i] !== sequence[i]) {
-            setGameOver(true); setIsPlaying(false); setIsUserTurn(false);
-            playSound(100, 800); return;
-          }
-
-          if (newUserSequence.length === sequence.length) {
-            const newScore = score + 1;
-            setScore(newScore); setLevel(Math.floor(newScore / 3) + 1);
-            setUserSequence([]); setIsUserTurn(false);
-            await sleep(800);
-            addNextColor(sequence);
-          }
-        };
-
-        return (
-          <div className="center">
-            <h1>MEMORIZADOR</h1>
-            <p>Ejercita tu memoria</p>
-
-            <div className="grid">
-              <button
-                onClick={() => handleColorClick(0)} disabled={!isUserTurn}
-                style={{ backgroundColor: activeColor === 0 ? colors[0].color : colors[0].darkColor }}
-              />
-              <button
-                onClick={() => handleColorClick(2)} disabled={!isUserTurn}
-                style={{ backgroundColor: activeColor === 2 ? colors[2].color : colors[2].darkColor }}
-              />
-              <button
-                onClick={() => handleColorClick(1)} disabled={!isUserTurn}
-                style={{ backgroundColor: activeColor === 1 ? colors[1].color : colors[1].darkColor }}
-              />
-              <button
-                onClick={() => handleColorClick(3)} disabled={!isUserTurn}
-                style={{ backgroundColor: activeColor === 3 ? colors[3].color : colors[3].darkColor }}
-              />
-            </div>
-
-            <p><strong>PUNTUACIÓN:</strong> {score} &nbsp;•&nbsp; <strong>NIVEL:</strong> {level}</p>
-
-            {!isPlaying && !gameOver && <button className="cta" onClick={startGame}>INICIAR</button>}
-            {isPlaying && !isUserTurn && <p>OBSERVA…</p>}
-            {isUserTurn && <p>¡TU TURNO!</p>}
-            {gameOver && (
-              <>
-                <button className="cta" onClick={startGame}>REINICIAR</button>
-                <p>¡Juego Terminado! Puntuación final: {score}</p>
-              </>
-            )}
-
-            <p style={{ marginTop: 24 }}>
-              Memoriza la secuencia de colores y repítela correctamente. Cada ronda añade un nuevo color.
-            </p>
-          </div>
-        );
+  useEffect(() => {
+    audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
+    return () => {
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
       }
+    };
+  }, []);
 
-      const root = ReactDOM.createRoot(document.getElementById('root'));
-      root.render(<SimonGame />);
-    </script>
-  </body>
-</html>
+  const colors = [
+    { id: 0, name: 'verde', color: '#00ff00', darkColor: '#00aa00', freq: 329.63 },
+    { id: 1, name: 'rojo', color: '#ff0000', darkColor: '#aa0000', freq: 261.63 },
+    { id: 2, name: 'amarillo', color: '#ffff00', darkColor: '#aaaa00', freq: 392.00 },
+    { id: 3, name: 'azul', color: '#0099ff', darkColor: '#0066aa', freq: 440.00 }
+  ];
+
+  const playSound = (frequency, duration = 400) => {
+    const ctx = audioContextRef.current;
+    if (!ctx) return;
+
+    const oscillator = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+
+    oscillator.connect(gainNode);
+    gainNode.connect(ctx.destination);
+
+    oscillator.frequency.value = frequency;
+    oscillator.type = 'sine';
+
+    gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + duration / 1000);
+
+    oscillator.start(ctx.currentTime);
+    oscillator.stop(ctx.currentTime + duration / 1000);
+  };
+
+  const flashColor = async (colorId) => {
+    setActiveColor(colorId);
+    playSound(colors[colorId].freq);
+    await new Promise(resolve => setTimeout(resolve, 400));
+    setActiveColor(null);
+    await new Promise(resolve => setTimeout(resolve, 100));
+  };
+
+  const playSequence = async (seq) => {
+    setIsUserTurn(false);
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    for (let colorId of seq) {
+      await flashColor(colorId);
+    }
+    
+    setIsUserTurn(true);
+  };
+
+  const startGame = () => {
+    setSequence([]);
+    setUserSequence([]);
+    setScore(0);
+    setLevel(1);
+    setGameOver(false);
+    setIsPlaying(true);
+    addNextColor([]);
+  };
+
+  const addNextColor = async (currentSeq) => {
+    const newColor = Math.floor(Math.random() * 4);
+    const newSequence = [...currentSeq, newColor];
+    setSequence(newSequence);
+    await playSequence(newSequence);
+  };
+
+  const handleColorClick = async (colorId) => {
+    if (!isUserTurn || gameOver) return;
+
+    playSound(colors[colorId].freq, 200);
+    setActiveColor(colorId);
+    setTimeout(() => setActiveColor(null), 200);
+
+    const newUserSequence = [...userSequence, colorId];
+    setUserSequence(newUserSequence);
+
+    const currentIndex = newUserSequence.length - 1;
+    
+    if (newUserSequence[currentIndex] !== sequence[currentIndex]) {
+      setGameOver(true);
+      setIsPlaying(false);
+      setIsUserTurn(false);
+      playSound(100, 800);
+      return;
+    }
+
+    if (newUserSequence.length === sequence.length) {
+      const newScore = score + 1;
+      setScore(newScore);
+      setLevel(Math.floor(newScore / 3) + 1);
+      setUserSequence([]);
+      setIsUserTurn(false);
+      
+      await new Promise(resolve => setTimeout(resolve, 800));
+      addNextColor(sequence);
+    }
+  };
+
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 p-4">
+      <div className="mb-8 text-center">
+        <h1 className="text-5xl font-bold text-white mb-2">MEMORIZADOR</h1>
+        <p className="text-gray-400">Ejercita tu memoria</p>
+      </div>
+
+      <div className="mb-6 flex gap-8 text-center">
+        <div>
+          <div className="text-gray-400 text-sm">PUNTUACIÓN</div>
+          <div className="text-white text-3xl font-bold">{score}</div>
+        </div>
+        <div>
+          <div className="text-gray-400 text-sm">NIVEL</div>
+          <div className="text-white text-3xl font-bold">{level}</div>
+        </div>
+      </div>
+
+      <div className="relative w-80 h-80 mb-8">
+        {/* Círculo exterior negro */}
+        <div className="absolute inset-0 rounded-full bg-black"></div>
+        
+        {/* Botón Verde (superior derecha) */}
+        <button
+          onClick={() => handleColorClick(0)}
+          disabled={!isUserTurn}
+          className="absolute top-0 right-0 w-40 h-40 rounded-tr-full transition-all duration-100 disabled:cursor-not-allowed"
+          style={{
+            backgroundColor: activeColor === 0 ? colors[0].color : colors[0].darkColor,
+            border: '4px solid black',
+            clipPath: 'polygon(100% 0, 100% 100%, 0 0)'
+          }}
+        />
+
+        {/* Botón Rojo (inferior izquierda) */}
+        <button
+          onClick={() => handleColorClick(1)}
+          disabled={!isUserTurn}
+          className="absolute bottom-0 left-0 w-40 h-40 rounded-bl-full transition-all duration-100 disabled:cursor-not-allowed"
+          style={{
+            backgroundColor: activeColor === 1 ? colors[1].color : colors[1].darkColor,
+            border: '4px solid black',
+            clipPath: 'polygon(0 100%, 100% 100%, 0 0)'
+          }}
+        />
+
+        {/* Botón Amarillo (superior izquierda) */}
+        <button
+          onClick={() => handleColorClick(2)}
+          disabled={!isUserTurn}
+          className="absolute top-0 left-0 w-40 h-40 rounded-tl-full transition-all duration-100 disabled:cursor-not-allowed"
+          style={{
+            backgroundColor: activeColor === 2 ? colors[2].color : colors[2].darkColor,
+            border: '4px solid black',
+            clipPath: 'polygon(0 0, 100% 0, 0 100%)'
+          }}
+        />
+
+        {/* Botón Azul (inferior derecha) */}
+        <button
+          onClick={() => handleColorClick(3)}
+          disabled={!isUserTurn}
+          className="absolute bottom-0 right-0 w-40 h-40 rounded-br-full transition-all duration-100 disabled:cursor-not-allowed"
+          style={{
+            backgroundColor: activeColor === 3 ? colors[3].color : colors[3].darkColor,
+            border: '4px solid black',
+            clipPath: 'polygon(100% 0, 100% 100%, 0 100%)'
+          }}
+        />
+
+        {/* Centro del juego */}
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-32 h-32 rounded-full bg-gradient-to-br from-gray-300 to-gray-500 flex items-center justify-center shadow-lg">
+          <div className="text-center">
+            {!isPlaying && !gameOver && (
+              <button
+                onClick={startGame}
+                className="bg-green-500 text-white px-6 py-2 rounded-full font-bold hover:bg-green-600 transition-colors text-sm"
+              >
+                INICIAR
+              </button>
+            )}
+            {isPlaying && !isUserTurn && (
+              <div className="text-gray-700 font-bold text-xs">OBSERVA...</div>
+            )}
+            {isUserTurn && (
+              <div className="text-green-600 font-bold text-xs">¡TU TURNO!</div>
+            )}
+            {gameOver && (
+              <button
+                onClick={startGame}
+                className="bg-red-500 text-white px-4 py-2 rounded-full font-bold hover:bg-red-600 transition-colors text-xs"
+              >
+                REINICIAR
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {gameOver && (
+        <div className="text-center bg-red-900 bg-opacity-80 text-white px-8 py-4 rounded-lg">
+          <div className="text-2xl font-bold mb-2">¡Juego Terminado!</div>
+          <div className="text-lg">Puntuación final: {score}</div>
+          <div className="text-sm text-gray-300 mt-2">¡Intenta superar tu récord!</div>
+        </div>
+      )}
+
+      <div className="mt-6 text-center text-gray-400 text-sm max-w-md">
+        <p>Memoriza la secuencia de colores y repítela correctamente.</p>
+        <p className="mt-2">Cada ronda añade un nuevo color. ¡Llega lo más lejos que puedas!</p>
+      </div>
+    </div>
+  );
+};
+
+export default SimonGame;
